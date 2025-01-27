@@ -1,19 +1,24 @@
 ```
 ai-service/
 ├── app/
-│   ├── main.py                  # Entry point for the AI service
-│   ├── routes.py                # API routes
+│   ├── main.py                  # Entry point for the service
+│   ├── routes.py                # API routes for debate and analysis
 │   ├── services/
-│   │   ├── llm_manager.py       # Logic for interacting with LLM (e.g., via LangChain, OpenAI, etc.)
-│   │   └── prompt_templates.py  # Prompt engineering utilities
+│   │   ├── external_api.py      # Handles requests to external APIs (ChatGPT)
+│   │   └── analysis.py          # Analysis logic using external API
 │   ├── models/
-│   │   └── ai_models.py         # AI-related models and schemas
+│   │   ├── debate_request.py    # Schema for debate request payload
+│   │   └── analysis_request.py  # Schema for analysis request payload
 │   └── utils/
-│       └── logging.py           # Logging utilities
-├── tests/                       # Test cases for the AI service
-│   └── test_llm_manager.py
+│       ├── logging.py           # Logging utilities
+│       └── config.py            # Configuration loader (e.g., API keys)
+├── tests/                       # Test cases for AI service
+│   ├── test_external_api.py     # Tests for external API calls
+│   └── test_routes.py           # Tests for API routes
 ├── Dockerfile                   # Docker configuration
 ├── requirements.txt             # Python dependencies
-└── .env                         # Environment variables specific to the AI service
+└── .env                         # Environment variables (e.g., API keys)
+
+
 
 ```

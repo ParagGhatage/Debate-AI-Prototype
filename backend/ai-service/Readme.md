@@ -1,10 +1,11 @@
 ```
 ai-service/
 ├── app/
+|   ├── __init__.py
 │   ├── main.py                  # Entry point for the service
 │   ├── routes.py                # API routes for debate and analysis
 │   ├── services/
-│   │   ├── external_api.py      # Handles requests to external APIs (ChatGPT)
+│   │   ├── debate.py      # Handles requests to external APIs (ChatGPT)
 │   │   └── analysis.py          # Analysis logic using external API
 │   ├── models/
 │   │   ├── debate_request.py    # Schema for debate request payload

@@ -9,14 +9,16 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/rs/cors"
+	"github.com/gorilla/websocket"
 )
 
-var aiServiceURL string
-
-// Define a structure to map the incoming JSON data
-type RequestData struct {
-	Prompt string `json:"key1"` // Corrected struct tag to map to 'key1'
+var upgrader = websocket.Upgrader{
+	CheckOrigin: func(r *http.Request) bool {
+		return true // Allow all origins (change based on your security needs)
+	},
 }
+
+var aiServiceURL string
 
 func main() {
 	// Load environment variables
@@ -38,8 +40,8 @@ func main() {
 	handler := cors.Default().Handler(mux)
 
 	// Route setup
-	mux.HandleFunc("/debate", loggingMiddleware(forward_to_debate))
-	mux.HandleFunc("/analyze", loggingMiddleware(forward_to_analyze))
+	mux.HandleFunc("/debate", loggingMiddleware(handleWebSocket)) // WebSocket endpoint
+	mux.HandleFunc("/analyze", loggingMiddleware(forwardToAnalyze)) // Analysis endpoint
 
 	// Start the server
 	log.Println("Gateway running on http://localhost:8080")
@@ -53,93 +55,111 @@ func loggingMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// forwardRequest forwards the request to the AI service or debate service
-func forward_to_debate(w http.ResponseWriter, r *http.Request) {
-    // Forward URL with query parameters
-    url := aiServiceURL + r.URL.Path + "?" + r.URL.RawQuery
+// handleWebSocket upgrades the HTTP connection to a WebSocket and forwards the message to the AI service
+func handleWebSocket(w http.ResponseWriter, r *http.Request) {
+	// Upgrade HTTP connection to WebSocket
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Printf("Error upgrading WebSocket: %v", err)
+		return
+	}
+	defer conn.Close()
 
-    log.Printf("Forwarding request to: %s", url)
+	log.Printf("Client connected: %s", r.RemoteAddr)
 
-    // Read the incoming request body
-    body, err := io.ReadAll(r.Body)
-    if err != nil {
-        http.Error(w, "Failed to read request body", http.StatusInternalServerError)
-        return
-    }
+	// Read the incoming message from the client (expecting the debate prompt)
+	_, prompt, err := conn.ReadMessage()
+	if err != nil {
+		log.Printf("Error reading WebSocket message: %v", err)
+		return
+	}
+	log.Printf("Received prompt from client: %s", prompt)
 
-    // Prepare the request to forward
-    req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(body))
-    if err != nil {
-        http.Error(w, "Failed to create forward request", http.StatusInternalServerError)
-        return
-    }
+	// Forward the prompt to the AI service
+	response, err := forwardToAIService("ws://localhost:8000/debate", prompt)
+	if err != nil {
+		log.Printf("Error forwarding to AI service: %v", err)
+		return
+	}
 
-    // Copy headers from the incoming request
-    req.Header = r.Header
-
-    // Forward the request
-    client := &http.Client{}
-    resp, err := client.Do(req)
-    if err != nil {
-        http.Error(w, "Failed to connect to service", http.StatusBadGateway)
-        return
-    }
-    defer resp.Body.Close()
-
-    // Send back the response from the service
-    respBody, err := io.ReadAll(resp.Body)
-    if err != nil {
-        http.Error(w, "Failed to read response body", http.StatusInternalServerError)
-        return
-    }
-
-    // Set the response headers and send the body
-    w.Header().Set("Content-Type", resp.Header.Get("Content-Type"))
-    w.WriteHeader(resp.StatusCode)
-    w.Write(respBody)
+	// Send the AI response back to the client via WebSocket
+	err = conn.WriteMessage(websocket.TextMessage, response)
+	if err != nil {
+		log.Printf("Error sending WebSocket message: %v", err)
+	}
 }
 
-func forward_to_analyze(w http.ResponseWriter, r *http.Request) {
-    // Define the target route for the AI service
-    url := aiServiceURL + "/analyze"
-
-    log.Printf("Forwarding request to: %s", url)
-
-    // Read the incoming request body
-    body, err := io.ReadAll(r.Body)
+// forwardToAIService forwards the prompt to the AI service and returns the response
+// forwardToAIService now uses WebSocket to forward the message to the AI service
+func forwardToAIService(url string, body []byte) ([]byte, error) {
+    // Establish a WebSocket connection to the AI service
+    aiConn, _, err := websocket.DefaultDialer.Dial(url, nil)
     if err != nil {
-        http.Error(w, "Failed to read request body", http.StatusInternalServerError)
-        return
+        return nil, err
+    }
+    defer aiConn.Close()
+
+    // Send the body (prompt) to the AI service
+    err = aiConn.WriteMessage(websocket.TextMessage, body)
+    if err != nil {
+        return nil, err
     }
 
-    // Prepare the forward request
-    req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(body))
+    // Read the response from the AI service
+    _, response, err := aiConn.ReadMessage()
     if err != nil {
-        http.Error(w, "Failed to create forward request", http.StatusInternalServerError)
-        return
+        return nil, err
     }
 
-    // Copy headers from the incoming request to the forwarded request
-    req.Header = r.Header
+    // Return the response from the AI service
+    return response, nil
+}
 
-    // Forward the request
-    client := &http.Client{}
-    resp, err := client.Do(req)
-    if err != nil {
-        http.Error(w, "Failed to connect to AI service", http.StatusBadGateway)
-        return
-    }
-    defer resp.Body.Close()
 
-    // Read the response body from the AI service
-    respBody, err := io.ReadAll(resp.Body)
-    if err != nil {
-        http.Error(w, "Failed to read response body", http.StatusInternalServerError)
-        return
-    }
+// forwardToAnalyze forwards the analysis request to the AI service
+func forwardToAnalyze(w http.ResponseWriter, r *http.Request) {
+	url :="http://localhost:8000/analyze"
+	log.Printf("Forwarding analysis request to: %s", url)
 
-    // Set the response headers from the AI service and send the response body back
-    w.Header().Set("Content-Type", resp.Header.Get("Content-Type"))
-    w.WriteHeader(resp.StatusCode)
-    w.Write(respBody)
+	// Read the incoming request body
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		log.Printf("Error reading request body: %v", err)
+		http.Error(w, "Failed to read request body", http.StatusInternalServerError)
+		return
+	}
+
+	// Prepare the forward request
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(body))
+	if err != nil {
+		log.Printf("Error creating forward request: %v", err)
+		http.Error(w, "Failed to create forward request", http.StatusInternalServerError)
+		return
+	}
+
+	// Copy headers from the incoming request to the forwarded request
+	req.Header = r.Header
+
+	// Forward the request
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("Error forwarding to AI service: %v", err)
+		http.Error(w, "Failed to connect to AI service", http.StatusBadGateway)
+		return
+	}
+	defer resp.Body.Close()
+
+	// Read the response body from the AI service
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Printf("Error reading response body: %v", err)
+		http.Error(w, "Failed to read response body", http.StatusInternalServerError)
+		return
+	}
+
+	// Set the response headers from the AI service and send the response body back
+	w.Header().Set("Content-Type", resp.Header.Get("Content-Type"))
+	w.WriteHeader(resp.StatusCode)
+	w.Write(respBody)
 }

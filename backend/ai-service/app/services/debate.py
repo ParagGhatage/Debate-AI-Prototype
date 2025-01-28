@@ -14,4 +14,4 @@ async def call_debate(prompt: str, max_tokens: int = 100):
         # response = await client.post(LLM_API_URL, headers=headers, json=payload)
         # response.raise_for_status()
         response={"status":"ok"}
-        return response.json()
+        return response

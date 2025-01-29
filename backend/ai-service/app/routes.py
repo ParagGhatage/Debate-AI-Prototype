@@ -1,80 +1,104 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, Request
-from app.services.debate import call_debate  # Assuming call_debate is an async function
-from app.services.analysis import call_analyze  # Assuming call_analyze is an async function
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi.responses import JSONResponse
 import logging
+from huggingface_hub import InferenceClient
+from pydantic import BaseModel
 
-# Set up logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
+# Router setup
 router = APIRouter()
 
+logger = logging.getLogger("uvicorn")
+
+# Initialize Hugging Face Inference API client
+api_key = "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"  # Replace with your actual Hugging Face API key
+client = InferenceClient(token=api_key)
+model_id = "meta-llama/Meta-Llama-3-8B-Instruct"  # Model you want to use
+
+
+
+# Function to call the debate model
+async def call_debate(user_input: str):
+    try:
+        # Prepare the system prompt and the user input
+        system_prompt = f"You are a skilled debater. Respond to the following argument: {user_input}"
+
+        # Get response from Hugging Face API (no 'await' here)
+        response = client.chat.completions.create(
+            model=model_id,
+            messages=[{"role": "user", "content": system_prompt}]
+        )
+
+        # Return the AI response
+        return response.choices[0].message['content']
+    except Exception as e:
+        logger.error(f"AI service error: {str(e)}")
+        return "Error processing your request."
+
+# WebSocket route to simulate debate (already existing)
 @router.websocket("/debate")
 async def debate_with_ai(websocket: WebSocket):
-    """
-    WebSocket endpoint for debating with AI.
-    Listens for prompts and sends back responses.
-    """
-    await websocket.accept()  # Accept the WebSocket connection
+    await websocket.accept()
 
     try:
         while True:
-            # Receive prompt from the client (React frontend)
-            prompt = await websocket.receive_text()
-            logger.info(f"Received prompt: {prompt}")
-
             try:
-                # Call the AI debate function
-                response = await call_debate(prompt)
-
-                # Ensure the response has the expected structure
-                if "status" in response:
-                    ai_response = "Debate AI service is working fine."
-                else:
-                    ai_response = "No valid response from AI service."
-
-                # Send the AI response back to the frontend via WebSocket
-                await websocket.send_text(ai_response)
-
+                prompt = await websocket.receive_text()
+                logger.info(f"Received prompt: {prompt}")
+                
+                ai_response = await call_debate(prompt)  # Get response from the debate function
+                await websocket.send_text(ai_response)  # Send AI response back to the client
+            except WebSocketDisconnect:
+                logger.info("Client disconnected")
+                break
             except Exception as e:
-                # If there was an error in calling the AI service
-                logger.error(f"Error calling AI service: {str(e)}")
-                await websocket.send_text(f"AI Service Error: {str(e)}")
+                logger.error(f"Unexpected error: {str(e)}")
+                await websocket.send_text(f"Error: {str(e)}")
+    finally:
+        await websocket.close()
+        
+# Define the data structure for the incoming request
+class Message(BaseModel):
+    role: str
+    content: str
 
-    except WebSocketDisconnect:
-        logger.info("Client disconnected")
-    except Exception as e:
-        logger.error(f"Unexpected error: {str(e)}")
-        await websocket.send_text(f"Unexpected error: {str(e)}")
+class AnalyzeRequest(BaseModel):
+    messages: list[Message]
+    
+    
+# Hugging Face API URL and model details
+HUGGING_FACE_API_URL = "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct"
+HEADERS = {
+    "Authorization": "Bearer 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"
+}
 
 
+# POST route for /analyze to handle incoming messages
 @router.post("/analyze")
-async def analyze_debate(request: Request):
-    """
-    Endpoint for analyzing a debate.
-    Receives requests forwarded from the Go backend.
-    """
+async def analyze(request: AnalyzeRequest):
     try:
-        # Parse the JSON payload
-        body = await request.json()
-        logger.info(f"Received analysis request: {body}")
-        debate_text = body.get("debate_text")
+        print(request)
+        # Log the incoming request data
+        logger.info(f"Received analyze request: {request.json()}")
+        
+        # Loop through the messages and process each one
+        for message in request.messages:
+            logger.info(f"Processing message - Role: {message.role}, Content: {message.content}")
+            # You can now pass this to another service or process it here
+        system_prompt = f"Analyze user messages and give points out of 10 and give tips for following messages: {request.messages}"
+        
+        # Get response from Hugging Face API (no 'await' here)
+        response = client.chat.completions.create(
+            model="meta-llama/Meta-Llama-3-8B-Instruct",
+            messages=[{"role": "user", "content": system_prompt}]
+        )
+        
+        # Here we could forward the message to your AI service for further processing or analysis
+        # You can call your debate model or any other service here as needed
 
-        if not debate_text:
-            raise HTTPException(status_code=400, detail="Missing 'debate_text' in request body")
+        # Send a response confirming the received messages
+        return JSONResponse(content={"message": response.choices[0].message['content']}, status_code=200)
 
-        # Prepare the analysis prompt
-        prompt = f"Analyze the following debate and provide insights: {debate_text}"
-        response = await call_analyze(prompt)
-
-        # Ensure response structure is valid before returning
-        analysis_result = response.get("status", "Analysis not available")
-
-        # Return the AI's analysis result
-        return {"analysis": analysis_result}
-    except HTTPException as http_error:
-        logger.error(f"HTTP error: {http_error.detail}")
-        raise http_error
     except Exception as e:
-        logger.error(f"Error analyzing debate: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"AI Service Error: {str(e)}")
+        logger.error(f"Error processing the analyze request: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+

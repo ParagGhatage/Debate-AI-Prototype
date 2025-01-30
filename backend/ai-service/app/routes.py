@@ -3,6 +3,7 @@ from fastapi.responses import JSONResponse
 import logging
 from huggingface_hub import InferenceClient
 from pydantic import BaseModel
+import os
 
 # Router setup
 router = APIRouter()
@@ -10,7 +11,7 @@ router = APIRouter()
 logger = logging.getLogger("uvicorn")
 
 # Initialize Hugging Face Inference API client
-api_key = "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"  # Replace with your actual Hugging Face API key
+api_key = os.environ.get("LLM_API_KEY")  # Replace with your actual Hugging Face API key
 client = InferenceClient(token=api_key)
 model_id = "meta-llama/Meta-Llama-3-8B-Instruct"  # Model you want to use
 

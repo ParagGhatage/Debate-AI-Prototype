@@ -63,29 +63,7 @@ const Debate: React.FC = () => {
   };
 
   // Function to send chat history to the /analyze route
-  const sendToAnalyze = async () => {
-    try {
-      console.log(messages)
-      const response = await fetch('http://localhost:8080/analyze', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ messages }),
-      });
-      const data = await response.text()
-      console.log(data)
-      
-
-      if (!response.ok) {
-        console.error('Failed to analyze chat');
-      } else {
-        console.log('Chat successfully sent for analysis');
-      }
-    } catch (error) {
-      console.error('Error sending chat to analyze:', error);
-    }
-  };
+  
 
   return (
     <div className="flex flex-col h-screen bg-white">

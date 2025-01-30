@@ -57,49 +57,6 @@ async def debate_with_ai(websocket: WebSocket):
     finally:
         await websocket.close()
         
-# Define the data structure for the incoming request
-class Message(BaseModel):
-    role: str
-    content: str
 
-class AnalyzeRequest(BaseModel):
-    messages: list[Message]
     
-    
-# Hugging Face API URL and model details
-HUGGING_FACE_API_URL = "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct"
-HEADERS = {
-    "Authorization": "Bearer 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"
-}
-
-
-# POST route for /analyze to handle incoming messages
-@router.post("/analyze")
-async def analyze(request: AnalyzeRequest):
-    try:
-        print(request)
-        # Log the incoming request data
-        logger.info(f"Received analyze request: {request.json()}")
-        
-        # Loop through the messages and process each one
-        for message in request.messages:
-            logger.info(f"Processing message - Role: {message.role}, Content: {message.content}")
-            # You can now pass this to another service or process it here
-        system_prompt = f"Analyze user messages and give points out of 10 and give tips for following messages: {request.messages}"
-        
-        # Get response from Hugging Face API (no 'await' here)
-        response = client.chat.completions.create(
-            model="meta-llama/Meta-Llama-3-8B-Instruct",
-            messages=[{"role": "user", "content": system_prompt}]
-        )
-        
-        # Here we could forward the message to your AI service for further processing or analysis
-        # You can call your debate model or any other service here as needed
-
-        # Send a response confirming the received messages
-        return JSONResponse(content={"message": response.choices[0].message['content']}, status_code=200)
-
-    except Exception as e:
-        logger.error(f"Error processing the analyze request: {str(e)}")
-        raise HTTPException(status_code=500, detail="Internal Server Error")
-
+   

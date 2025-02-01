@@ -102,7 +102,7 @@ const Debate: React.FC = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.3 }}
-            className="p-4 rounded-lg max-w-[80%] mb-4 bg-gray-200 text-black border border-gray-300 italic text-sm shadow-sm typing-indicator"
+            className="p-4 rounded-lg max-w-[80%] mb-4 text-black bg-gray-200  border border-gray-300 italic text-sm shadow-sm typing-indicator"
           >
             AI is typing...
           </motion.div>
@@ -115,7 +115,7 @@ const Debate: React.FC = () => {
             placeholder="Type your argument here..."
             onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
             autoFocus
-            className="border-2 border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 rounded-lg shadow-md transition-all duration-200 ease-in-out px-4 py-2 w-full"
+            className="border-2 border-gray-300 focus:ring-2 text-black focus:ring-blue-500 focus:border-blue-500 rounded-lg shadow-md transition-all duration-200 ease-in-out px-4 py-2 w-full"
           />
           <Button
             onClick={handleSendMessage}

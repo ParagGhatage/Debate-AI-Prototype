@@ -27,7 +27,7 @@ const faqs = [
 
 export default function FAQ() {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
-  const [darkMode, setDarkMode] = useState<boolean>(() => {
+  const [darkMode] = useState<boolean>(() => {
     return (
       localStorage.getItem("darkMode") === "true" ||
       (!("darkMode" in localStorage) && window.matchMedia("(prefers-color-scheme: dark)").matches)

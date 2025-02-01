@@ -70,8 +70,9 @@ const Debate: React.FC = () => {
       <header className="bg-gradient-to-r from-black to-gray-800 text-white p-6 shadow-lg rounded-b-lg">
         <h1 className="text-3xl font-semibold">{`Debating: ${topic}`}</h1>
       </header>
+      <div className="flex-grow p-4 custom-scrollbar smooth-scroll" >
 
-      <SmoothScroll className="flex-grow p-4 custom-scrollbar smooth-scroll">
+      <SmoothScroll >
         <AnimatePresence>
           {messages.map((message, index) => (
             <motion.div
@@ -91,6 +92,8 @@ const Debate: React.FC = () => {
           ))}
         </AnimatePresence>
       </SmoothScroll>
+      </div>
+      
 
       <div className="p-6 bg-gray-100 border-t border-gray-200 flex flex-col space-y-2">
         {isTyping && (

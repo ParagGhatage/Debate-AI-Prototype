@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react"
 import { motion, useAnimation } from "framer-motion"
 import { Button } from "@/components/ui/button"
-import heroImage from "@/assets/hero-image.jpg"
+// import heroImage from "@/assets/hero-image.jpg"
+import New from "@/assets/new.png"
 import { useNavigate } from "react-router-dom"
 import { ScrollParallax } from "react-just-parallax"
 
@@ -221,7 +222,7 @@ const Home: React.FC = () => {
             <div className="p-3">
               <div className="aspect-video bg-red-200 rounded-lg flex items-center justify-center border-2 border-gray-300 dark:border-gray-600 overflow-hidden">
                 <img
-                  src={heroImage}
+                  src={New}
                   alt="Hero"
                   className="w-full h-auto rounded-lg object-cover"
                 />
